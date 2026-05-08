@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Azerbaijan Payroll Analyzer</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e1117;
+    --surface: #161b27;
+    --surface2: #1e2535;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --accent: #4f8ef7;
+    --accent-dim: rgba(79,142,247,0.12);
+    --accent2: #34d399;
+    --warn: #f59e0b;
+    --warn-dim: rgba(245,158,11,0.12);
+    --err: #f87171;
+    --err-dim: rgba(248,113,113,0.12);
+    --ok: #34d399;
+    --ok-dim: rgba(52,211,153,0.12);
+    --text: #e8ecf3;
+    --text2: #8b95a8;
+    --text3: #5a6070;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Sora', sans-serif;
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* Subtle grid bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* ── Header ── */
+  .header {
+    margin-bottom: 48px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .header-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-tag::before {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  h1 {
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -1px;
+    line-height: 1.15;
+    margin-bottom: 14px;
+    background: linear-gradient(135deg, #e8ecf3 0%, #8b95a8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header p {
+    color: var(--text2);
+    font-size: 15px;
+    max-width: 560px;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* ── API Key section ── */
+  .api-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    animation: fadeUp 0.5s 0.05s ease both;
+  }
+
+  .api-section label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: var(--text2);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .api-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .api-row input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .api-row input:focus { border-color: var(--accent); }
+  .api-row input::placeholder { color: var(--text3); }
+
+  .toggle-vis {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 13px;
+    transition: color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+  }
+
+  .toggle-vis:hover { color: var(--text); border-color: var(--border2); }
+
+  .api-note {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  .api-note a { color: var(--accent); text-decoration: none; }
+  .api-note a:hover { text-decoration: underline; }
+
+  /* ── Upload zone ── */
+  .upload-area {
+    animation: fadeUp 0.5s 0.1s ease both;
+  }
+
+  .drop-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 48px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-zone::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(79,142,247,0.06), transparent 70%);
+    pointer-events: none;
+  }
+
+  .drop-zone:hover, .drop-zone.active {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+
+  .drop-zone.active { border-style: solid; }
+
+  .drop-icon {
+    width: 56px;
+    height: 56px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(79,142,247,0.25);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+  }
+
+  .drop-icon svg { width: 26px; height: 26px; stroke: var(--accent); fill: none; }
+
+  .drop-title {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  .drop-sub {
+    color: var(--text2);
+    font-size: 13px;
+    font-weight: 300;
+  }
+
+  input[type="file"] { display: none; }
+
+  /* ── File loaded state ── */
+  .file-loaded {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+
+  .file-loaded.show { display: block; }
+
+  .file-header-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .file-icon-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: var(--ok-dim);
+    border: 1px solid rgba(52,211,153,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .file-icon-box svg { width: 22px; height: 22px; stroke: var(--ok); fill: none; }
+
+  .file-info-text { flex: 1; }
+  .file-name { font-weight: 500; font-size: 15px; margin-bottom: 3px; word-break: break-all; }
+  .file-meta { color: var(--text2); font-size: 12px; font-family: var(--mono); }
+
+  .btn-remove {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: color 0.2s;
+    flex-shrink: 0;
+  }
+  .btn-remove:hover { color: var(--err); }
+  .btn-remove svg { width: 18px; height: 18px; stroke: currentColor; fill: none; display: block; }
+
+  .sheets-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .sheet-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    background: var(--surface2);
+  }
+
+  /* ── Analyze button ── */
+  .btn-analyze {
+    width: 100%;
+    margin-top: 16px;
+    padding: 14px;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: var(--radius);
+    border: 1px solid rgba(79,142,247,0.4);
+    background: var(--accent-dim);
+    color: var(--accent);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: background 0.2s, border-color 0.2s, transform 0.1s;
+    letter-spacing: 0.2px;
+  }
+
+  .btn-analyze:hover:not(:disabled) {
+    background: rgba(79,142,247,0.2);
+    border-color: rgba(79,142,247,0.6);
+  }
+
+  .btn-analyze:active:not(:disabled) { transform: scale(0.99); }
+  .btn-analyze:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-analyze svg { width: 18px; height: 18px; stroke: currentColor; fill: none; }
+
+  /* ── Status ── */
+  .status {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    margin-top: 16px;
+    font-size: 13px;
+  }
+
+  .status.show { display: flex; }
+  .status.loading { background: var(--accent-dim); border: 1px solid rgba(79,142,247,0.2); color: var(--accent); }
+  .status.error { background: var(--err-dim); border: 1px solid rgba(248,113,113,0.2); color: var(--err); }
+
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Results ── */
+  #results { margin-top: 40px; display: none; }
+  #results.show { display: block; animation: fadeUp 0.4s ease both; }
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .results-header h2 {
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.3px;
+  }
+
+  .summary-text {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.7;
+    margin-bottom: 28px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    border-left: 2px solid var(--accent);
+    font-weight: 300;
+  }
+
+  /* ── Metrics ── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  @media (max-width: 600px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+
+  .metric-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .metric-value {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .metric-value.ok { color: var(--ok); }
+  .metric-value.warn { color: var(--warn); }
+  .metric-value.err { color: var(--err); }
+  .metric-value.accent { color: var(--accent); }
+
+  /* ── Tags strip ── */
+  .tags-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 28px;
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+  }
+
+  .tag.accent { border-color: rgba(79,142,247,0.3); color: var(--accent); background: var(--accent-dim); }
+
+  /* ── Section heading ── */
+  .section-heading {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-heading::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Accordion cards ── */
+  .accordion-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 32px;
+  }
+
+  .acc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .acc-card:hover { border-color: var(--border2); }
+  .acc-card.open { border-color: var(--border2); }
+
+  .acc-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dot-ok { background: var(--ok); box-shadow: 0 0 6px rgba(52,211,153,0.5); }
+  .dot-warn { background: var(--warn); box-shadow: 0 0 6px rgba(245,158,11,0.5); }
+  .dot-err { background: var(--err); box-shadow: 0 0 6px rgba(248,113,113,0.5); }
+  .dot-info { background: var(--accent); box-shadow: 0 0 6px rgba(79,142,247,0.5); }
+
+  .acc-title { font-size: 14px; font-weight: 500; flex: 1; }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    text-transform: uppercase;
+  }
+
+  .badge-ok { background: var(--ok-dim); color: var(--ok); border: 1px solid rgba(52,211,153,0.2); }
+  .badge-warn { background: var(--warn-dim); color: var(--warn); border: 1px solid rgba(245,158,11,0.2); }
+  .badge-err { background: var(--err-dim); color: var(--err); border: 1px solid rgba(248,113,113,0.2); }
+  .badge-info { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(79,142,247,0.2); }
+
+  .chevron {
+    color: var(--text3);
+    font-size: 18px;
+    transition: transform 0.2s;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .acc-card.open .chevron { transform: rotate(180deg); }
+
+  .acc-body {
+    display: none;
+    padding: 0 18px 18px;
+    border-top: 1px solid var(--border);
+  }
+
+  .acc-card.open .acc-body { display: block; }
+
+  .acc-block {
+    margin-top: 14px;
+  }
+
+  .acc-block-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .acc-block-text {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  .formula-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-top: 6px;
+  }
+
+  .regulation-block {
+    background: rgba(79,142,247,0.05);
+    border-left: 2px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.6;
+    font-weight: 300;
+    margin-top: 6px;
+  }
+
+  /* ── Compliance issues ── */
+  .issue-card {
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  /* ── Recommendations ── */
+  .rec-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 32px;
+  }
+
+  .rec-item {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  .rec-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+    min-width: 24px;
+  }
+
+  /* ── Raw JSON toggle ── */
+  .raw-section {
+    margin-top: 32px;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+
+  .raw-toggle-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .raw-toggle-btn:hover { color: var(--text2); border-color: var(--border2); }
+
+  .raw-json {
+    display: none;
+    margin-top: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 500px;
+    overflow-y: auto;
+    line-height: 1.7;
+  }
+
+  .raw-json.show { display: block; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-tag">Payroll Compliance Tool</div>
+    <h1>Azerbaijan Payroll<br>Analyzer</h1>
+    <p>Upload your Excel payroll file to extract all calculation logic, compare it to current Azerbaijani labour and tax regulations, and get a full summary for building your payroll app.</p>
+  </div>
+
+  <!-- API Key -->
+  <div class="api-section">
+    <label>Anthropic API Key</label>
+    <div class="api-row">
+      <input type="password" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off">
+      <button class="toggle-vis" onclick="toggleApiVis()">Show</button>
+    </div>
+    <p class="api-note">Your key is never stored or sent anywhere except directly to <a href="https://api.anthropic.com" target="_blank">api.anthropic.com</a>. Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.</p>
+  </div>
+
+  <!-- Upload -->
+  <div class="upload-area">
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm,.csv">
+      <div class="drop-icon">
+        <svg viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+      </div>
+      <div class="drop-title">Drop your payroll Excel file here</div>
+      <div class="drop-sub">Supports .xlsx · .xls · .xlsm — or click to browse</div>
+    </div>
+  </div>
+
+  <!-- File loaded -->
+  <div class="file-loaded" id="fileLoaded">
+    <div class="file-header-row">
+      <div class="file-icon-box">
+        <svg viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div class="file-info-text">
+        <div class="file-name" id="fileName">–</div>
+        <div class="file-meta" id="fileMeta">–</div>
+      </div>
+      <button class="btn-remove" onclick="clearFile()" title="Remove file">
+        <svg viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="sheetsStrip" class="sheets-row"></div>
+  </div>
+
+  <button class="btn-analyze" id="analyzeBtn" disabled onclick="analyze()">
+    <svg viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg>
+    Analyze payroll logic against Azerbaijani regulations
+  </button>
+
+  <div class="status" id="statusBar">
+    <span id="statusIcon">⟳</span>
+    <span id="statusMsg"></span>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+    <div class="results-header">
+      <h2>Analysis complete</h2>
+    </div>
+
+    <div class="summary-text" id="summaryText"></div>
+
+    <div class="metrics-grid" id="metricsGrid"></div>
+
+    <div class="tags-strip" id="tagsStrip"></div>
+
+    <div id="logicSection"></div>
+    <div id="issuesSection"></div>
+    <div id="recsSection"></div>
+
+    <div class="raw-section">
+      <button class="raw-toggle-btn" onclick="toggleRaw()">{ } Raw JSON response</button>
+      <pre class="raw-json" id="rawJson"></pre>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──
+let workbookData = null;
+let rawText = '';
+let apiVisible = false;
+
+// ── API Key toggle ──
+function toggleApiVis() {
+  const inp = document.getElementById('apiKey');
+  apiVisible = !apiVisible;
+  inp.type = apiVisible ? 'text' : 'password';
+  document.querySelector('.toggle-vis').textContent = apiVisible ? 'Hide' : 'Show';
+}
+
+// ── Drag & Drop ──
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('active'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('active'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('active');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+// ── File handling ──
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary', cellFormula: true, cellNF: true });
+      workbookData = extractData(wb);
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileMeta').textContent =
+        (file.size / 1024).toFixed(1) + ' KB  ·  ' + workbookData.sheets.length + ' sheet(s)  ·  ' +
+        workbookData.sheets.reduce((a, s) => a + s.formulas.length, 0) + ' formulas found';
+      renderSheets(workbookData.sheets);
+      document.getElementById('fileLoaded').classList.add('show');
+      document.getElementById('analyzeBtn').disabled = false;
+      document.getElementById('results').classList.remove('show');
+      hideStatus();
+    } catch (err) {
+      showStatus('error', 'Could not read file: ' + err.message);
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function extractData(wb) {
+  const sheets = [];
+  wb.SheetNames.forEach(name => {
+    const ws = wb.Sheets[name];
+    if (!ws['!ref']) return;
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    const formulas = [], sampleData = [], headers = [];
+    const maxRow = Math.min(range.e.r, 300);
+    for (let r = range.s.r; r <= maxRow; r++) {
+      const row = [];
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        const cell = ws[addr];
+        if (!cell) { row.push(''); continue; }
+        if (r === range.s.r) headers.push(String(cell.v || ''));
+        if (cell.f) formulas.push({ cell: addr, formula: cell.f, value: cell.v });
+        row.push(cell.v !== undefined ? String(cell.v) : '');
+      }
+      if (r < range.s.r + 6) sampleData.push(row);
+    }
+    sheets.push({
+      name,
+      rowCount: range.e.r + 1,
+      colCount: range.e.c + 1,
+      formulas: formulas.slice(0, 120),
+      sampleData,
+      headers: headers.slice(0, 30)
+    });
+  });
+  return { sheets };
+}
+
+function renderSheets(sheets) {
+  document.getElementById('sheetsStrip').innerHTML =
+    sheets.map(s => `<span class="sheet-pill">${esc(s.name)} · ${s.rowCount}×${s.colCount}</span>`).join('');
+}
+
+function clearFile() {
+  workbookData = null;
+  fileInput.value = '';
+  document.getElementById('fileLoaded').classList.remove('show');
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('results').classList.remove('show');
+  hideStatus();
+}
+
+// ── Status ──
+function showStatus(type, msg) {
+  const el = document.getElementById('statusBar');
+  el.className = 'status show ' + type;
+  document.getElementById('statusIcon').innerHTML = type === 'loading'
+    ? '<span class="spin">⟳</span>' : '⚠';
+  document.getElementById('statusMsg').textContent = msg;
+}
+function hideStatus() { document.getElementById('statusBar').className = 'status'; }
+
+// ── Analyze ──
+async function analyze() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { showStatus('error', 'Please enter your Anthropic API key above.'); return; }
+  if (!workbookData) return;
+
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('results').classList.remove('show');
+  showStatus('loading', 'Extracting formulas and comparing to Azerbaijani payroll regulations…');
+
+  const prompt = buildPrompt(workbookData);
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-calls': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        system: getSystemPrompt(),
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'API error ' + res.status);
+    rawText = data.content.map(b => b.text || '').join('');
+    hideStatus();
+    renderResults(rawText);
+  } catch (err) {
+    showStatus('error', 'Analysis failed: ' + err.message);
+    document.getElementById('analyzeBtn').disabled = false;
+  }
+}
+
+function getSystemPrompt() {
+  return `You are an expert in Azerbaijani payroll law, labour regulations, and Excel payroll system analysis.
+
+AZERBAIJANI PAYROLL REGULATIONS (2024):
+- Income Tax (Gəlir vergisi): 14% on monthly income up to 8,000 AZN; 25% on the excess above 8,000 AZN. Non-taxable (güzəşt): 200 AZN/month for most employees (enhanced deductions for veterans, disabled persons etc.).
+- DSMF Employee contribution (İşçi DSMF): 3% on salary portion up to 200 AZN + 10% on salary above 200 AZN.
+- DSMF Employer contribution (İşəgötürən DSMF): 22% of gross salary (general sector; state budget entities may differ).
+- Mandatory Health Insurance – Employee (İcbari tibbi sığorta, işçi): 2% of gross salary.
+- Mandatory Health Insurance – Employer (İcbari tibbi sığorta, işəgötürən): 2% of gross salary.
+- Unemployment Insurance – Employee: 0.5% of gross salary.
+- Unemployment Insurance – Employer: 0.5% of gross salary.
+- Net salary = Gross − Income Tax − Employee DSMF − Employee Medical Insurance − Employee Unemployment Insurance.
+- Minimum wage: 400 AZN/month (since 2024).
+- Standard working time: 40 hours/week, ~22 working days/month, 8 hours/day.
+- Overtime: first 2 hours at 1.5x, beyond 2 hours at 2x hourly rate.
+- Vacation pay: average daily earnings × number of vacation days; average computed over last 12 months.
+- Sick leave: paid from DSMF fund based on seniority brackets.
+
+Analyze the provided Excel payroll file data. Respond ONLY with a valid JSON object — no markdown, no backticks, no preamble. Use this exact structure:
+{
+  "summary": "2-3 sentence plain-English overview of what the payroll file calculates",
+  "months_detected": ["month/period strings found, e.g. January 2024"],
+  "employee_count_estimate": "e.g. 12 or 10-15",
+  "metrics": {
+    "total_formulas": 0,
+    "sheets_analyzed": 0,
+    "compliance_issues": 0,
+    "logic_blocks": 0
+  },
+  "logic_blocks": [
+    {
+      "id": "unique_id",
+      "title": "Human-readable title e.g. Gross salary calculation",
+      "status": "ok or warn or error or info",
+      "description": "How this is calculated in the uploaded file, referencing actual formulas/columns seen",
+      "formula_example": "representative formula or pattern from the file",
+      "regulation_note": "What Azerbaijani regulation specifies for this component",
+      "compliance_note": "Whether the file matches regulation, or what specifically differs"
+    }
+  ],
+  "compliance_issues": [
+    {
+      "severity": "error or warn or info",
+      "title": "Short issue title",
+      "detail": "Full explanation of the issue found",
+      "regulation": "The specific regulation requirement this violates or may violate"
+    }
+  ],
+  "app_build_recommendations": [
+    "Concrete recommendation for implementing this in a payroll app",
+    "..."
+  ]
+}
+
+Be thorough. Always include logic_blocks for: gross_salary, income_tax, dsmf_employee, dsmf_employer, medical_insurance_employee, medical_insurance_employer, unemployment_insurance, net_salary. Add additional blocks for overtime, vacation, bonuses, sick_leave, deductions, reporting/totals if present in the file. If a component is not found in the file, note it as info status.`;
+}
+
+function buildPrompt(wb) {
+  let out = 'PAYROLL EXCEL FILE — EXTRACTED DATA\n\n';
+  out += `Total sheets: ${wb.sheets.length}\n`;
+  out += `Total formulas across all sheets: ${wb.sheets.reduce((a, s) => a + s.formulas.length, 0)}\n\n`;
+  wb.sheets.forEach(s => {
+    out += `════ SHEET: "${s.name}" (${s.rowCount} rows × ${s.colCount} columns) ════\n`;
+    if (s.headers.filter(Boolean).length) out += `Column headers: ${s.headers.filter(Boolean).join(' | ')}\n`;
+    if (s.sampleData.length) {
+      out += `Sample rows:\n`;
+      s.sampleData.slice(0, 5).forEach((r, i) => {
+        out += `  Row ${i + 1}: ${r.slice(0, 18).join(' | ')}\n`;
+      });
+    }
+    if (s.formulas.length) {
+      out += `\nFormulas found (${s.formulas.length}):\n`;
+      s.formulas.forEach(f => {
+        out += `  ${f.cell}: =${f.formula}`;
+        if (f.value !== undefined && f.value !== null) out += ` [=${f.value}]`;
+        out += '\n';
+      });
+    }
+    out += '\n';
+  });
+  return out;
+}
+
+// ── Render Results ──
+function renderResults(text) {
+  let parsed;
+  try {
+    const clean = text.replace(/```json[\s\S]*?```|```[\s\S]*?```/g, t => t.replace(/```json|```/g, '')).trim();
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    parsed = JSON.parse(jsonMatch ? jsonMatch[0] : clean);
+  } catch (e) {
+    // fallback: show raw
+    document.getElementById('summaryText').textContent = text;
+    document.getElementById('metricsGrid').innerHTML = '';
+    document.getElementById('tagsStrip').innerHTML = '';
+    document.getElementById('logicSection').innerHTML = '';
+    document.getElementById('issuesSection').innerHTML = '';
+    document.getElementById('recsSection').innerHTML = '';
+    document.getElementById('results').classList.add('show');
+    return;
+  }
+
+  const m = parsed.metrics || {};
+  const lbs = parsed.logic_blocks || [];
+  const issues = parsed.compliance_issues || [];
+  const recs = parsed.app_build_recommendations || [];
+
+  // Summary
+  document.getElementById('summaryText').textContent = parsed.summary || '';
+
+  // Metrics
+  const issueCount = issues.length;
+  document.getElementById('metricsGrid').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Formulas found</div><div class="metric-value accent">${m.total_formulas || wb_totalFormulas()}</div></div>
+    <div class="metric-card"><div class="metric-label">Sheets analyzed</div><div class="metric-value accent">${m.sheets_analyzed || (workbookData ? workbookData.sheets.length : '–')}</div></div>
+    <div class="metric-card"><div class="metric-label">Logic blocks</div><div class="metric-value">${lbs.length}</div></div>
+    <div class="metric-card"><div class="metric-label">Issues found</div><div class="metric-value ${issueCount === 0 ? 'ok' : issueCount > 3 ? 'err' : 'warn'}">${issueCount}</div></div>
+  `;
+
+  // Tags
+  const tags = [];
+  if (parsed.months_detected?.length) tags.push({ text: '📅 ' + parsed.months_detected.join(', '), cls: 'accent' });
+  if (parsed.employee_count_estimate) tags.push({ text: '👤 ~' + parsed.employee_count_estimate + ' employees', cls: '' });
+  document.getElementById('tagsStrip').innerHTML = tags.map(t => `<span class="tag ${t.cls}">${esc(t.text)}</span>`).join('');
+
+  // Logic blocks
+  if (lbs.length) {
+    let html = '<div class="section-heading">Payroll logic breakdown</div><div class="accordion-group">';
+    lbs.forEach((b, i) => {
+      const st = b.status || 'info';
+      html += `
+        <div class="acc-card" id="acc-${i}">
+          <div class="acc-header" onclick="toggleAcc(${i})">
+            <span class="status-dot dot-${st}"></span>
+            <span class="acc-title">${esc(b.title)}</span>
+            <span class="badge badge-${st}">${{ ok: 'Compliant', warn: 'Warning', error: 'Issue', info: 'Review' }[st] || st}</span>
+            <span class="chevron">⌄</span>
+          </div>
+          <div class="acc-body">
+            ${b.description ? `<div class="acc-block"><div class="acc-block-label">How it works in this file</div><div class="acc-block-text">${esc(b.description)}</div></div>` : ''}
+            ${b.formula_example ? `<div class="acc-block"><div class="acc-block-label">Formula pattern</div><div class="formula-block">=${esc(b.formula_example)}</div></div>` : ''}
+            ${b.regulation_note ? `<div class="acc-block"><div class="acc-block-label">Azerbaijani regulation</div><div class="regulation-block">${esc(b.regulation_note)}</div></div>` : ''}
+            ${b.compliance_note ? `<div class="acc-block"><div class="acc-block-label">Compliance verdict</div><div class="acc-block-text">${esc(b.compliance_note)}</div></div>` : ''}
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+    document.getElementById('logicSection').innerHTML = html;
+  } else {
+    document.getElementById('logicSection').innerHTML = '';
+  }
+
+  // Issues
+  if (issues.length) {
+    let html = '<div class="section-heading">Compliance issues</div><div class="accordion-group">';
+    issues.forEach((iss, i) => {
+      const sev = iss.severity || 'warn';
+      html += `
+        <div class="acc-card" id="iss-${i}">
+          <div class="acc-header" onclick="toggleIss(${i})">
+            <span class="status-dot dot-${sev === 'error' ? 'err' : sev === 'warn' ? 'warn' : 'info'}"></span>
+            <span class="acc-title">${esc(iss.title)}</span>
+            <span class="badge badge-${sev === 'error' ? 'err' : sev === 'warn' ? 'warn' : 'info'}">${sev.charAt(0).toUpperCase() + sev.slice(1)}</span>
+            <span class="chevron">⌄</span>
+          </div>
+          <div class="acc-body">
+            <div class="acc-block"><div class="acc-block-text">${esc(iss.detail)}</div></div>
+            ${iss.regulation ? `<div class="acc-block"><div class="acc-block-label">Regulation requirement</div><div class="regulation-block">${esc(iss.regulation)}</div></div>` : ''}
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+    document.getElementById('issuesSection').innerHTML = html;
+  } else {
+    document.getElementById('issuesSection').innerHTML = '';
+  }
+
+  // Recommendations
+  if (recs.length) {
+    let html = '<div class="section-heading">App build recommendations</div><div class="rec-list">';
+    recs.forEach((r, i) => {
+      html += `<div class="rec-item"><span class="rec-num">${String(i + 1).padStart(2, '0')}.</span><span>${esc(r)}</span></div>`;
+    });
+    html += '</div>';
+    document.getElementById('recsSection').innerHTML = html;
+  } else {
+    document.getElementById('recsSection').innerHTML = '';
+  }
+
+  document.getElementById('rawJson').textContent = JSON.stringify(parsed, null, 2);
+  document.getElementById('results').classList.add('show');
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function wb_totalFormulas() {
+  if (!workbookData) return '–';
+  return workbookData.sheets.reduce((a, s) => a + s.formulas.length, 0);
+}
+
+function toggleAcc(i) {
+  document.getElementById('acc-' + i).classList.toggle('open');
+}
+
+function toggleIss(i) {
+  document.getElementById('iss-' + i).classList.toggle('open');
+}
+
+function toggleRaw() {
+  document.getElementById('rawJson').classList.toggle('show');
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>
